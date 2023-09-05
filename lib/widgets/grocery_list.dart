@@ -19,6 +19,8 @@ class _GroceryListState extends State<GroceryList> {
   List<GroceryItem> _groceryItems = [];
 
   var _isLoading = true;
+  String? _error;
+  String? _statusCode;
 
   @override
   void initState() {
@@ -27,10 +29,17 @@ class _GroceryListState extends State<GroceryList> {
   }
 
   void _loadItems() async {
-    final url = Uri.https(
-        'shopping-app-31de0-default-rtdb.firebaseio.com', 'shopping-list.json');
+    final url = Uri.https('shopping-app-31de0-default-rtdb.firebaseio.com', 'shopping-list.json');
 
     final res = await http.get(url);
+
+    if (res.statusCode >= 400) {
+      setState(() {
+        _error = 'Something has gone wrong';
+        _statusCode = res.statusCode.toString();
+      });
+    }
+
     final Map<String, dynamic> listData = json.decode(res.body);
     final List<GroceryItem> loadedItems = [];
     for (final item in listData.entries) {
@@ -82,6 +91,52 @@ class _GroceryListState extends State<GroceryList> {
       child: Text('Grocery List is Empty'),
     );
 
+    if (_isLoading) {
+      content = const Center(
+        child: CircularProgressIndicator(),
+      );
+    }
+
+    if (_groceryItems.isNotEmpty) {
+      content = ListView.builder(
+        itemCount: _groceryItems.length,
+        itemBuilder: (ctx, index) => Dismissible(
+          onDismissed: (direction) {
+            _removeItem(_groceryItems[index]);
+          },
+          key: ValueKey(_groceryItems[index].id),
+          child: ListTile(
+            title: Text(_groceryItems[index].name),
+            leading: Container(
+              width: 24,
+              height: 24,
+              color: _groceryItems[index].category.color,
+            ),
+            trailing: Text(
+              _groceryItems[index].quantity.toString(),
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (_error != null) {
+      content = Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Center(
+            child: Text(_statusCode!),
+          ),
+          const SizedBox(
+            height: 16,
+          ),
+          Center(
+            child: Text(_error!),
+          ),
+        ],
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Your Groceries'),
@@ -89,32 +144,7 @@ class _GroceryListState extends State<GroceryList> {
           IconButton(onPressed: _addItem, icon: const Icon(Icons.add)),
         ],
       ),
-      body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(),
-            )
-          : _groceryItems.isNotEmpty
-              ? ListView.builder(
-                  itemCount: _groceryItems.length,
-                  itemBuilder: (ctx, index) => Dismissible(
-                    onDismissed: (direction) {
-                      _removeItem(_groceryItems[index]);
-                    },
-                    key: ValueKey(_groceryItems[index].id),
-                    child: ListTile(
-                      title: Text(_groceryItems[index].name),
-                      leading: Container(
-                        width: 24,
-                        height: 24,
-                        color: _groceryItems[index].category.color,
-                      ),
-                      trailing: Text(
-                        _groceryItems[index].quantity.toString(),
-                      ),
-                    ),
-                  ),
-                )
-              : content,
+      body: content,
     );
   }
 }

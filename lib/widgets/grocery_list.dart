@@ -40,6 +40,13 @@ class _GroceryListState extends State<GroceryList> {
       });
     }
 
+    if (res.body == 'null') {
+      setState(() {
+        _isLoading = false;
+      });
+      return;
+    }
+
     final Map<String, dynamic> listData = json.decode(res.body);
     final List<GroceryItem> loadedItems = [];
     for (final item in listData.entries) {
@@ -79,10 +86,20 @@ class _GroceryListState extends State<GroceryList> {
     });
   }
 
-  void _removeItem(GroceryItem item) {
+  void _removeItem(GroceryItem item) async {
+    final index = _groceryItems.indexOf(item);
     setState(() {
       _groceryItems.remove(item);
     });
+
+    final url = Uri.https('shopping-app-31de0-default-rtdb.firebaseio.com', 'shopping-list/${item.id}.json');
+    final res = await http.delete(url);
+
+    if (res.statusCode >= 400) {
+      setState(() {
+      _groceryItems.insert(index, item);
+    });
+    }
   }
 
   @override
